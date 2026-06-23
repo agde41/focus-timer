@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Focus Timer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --focus-color: #e85d4a;
+      --break-color: #4a9e7f;
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #f0f0f0;
+      --muted: #888;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 14px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .ring-container {
+      position: relative;
+      width: 240px;
+      height: 240px;
+    }
+
+    svg.ring {
+      transform: rotate(-90deg);
+      width: 240px;
+      height: 240px;
+    }
+
+    .ring-bg { fill: none; stroke: var(--border); stroke-width: 8; }
+    .ring-progress {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 659;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear, stroke 0.4s;
+    }
+
+    .time-display {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    .time-display .time {
+      font-size: 52px;
+      font-weight: 200;
+      letter-spacing: -2px;
+      line-height: 1;
+    }
+
+    .time-display .phase-label {
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    button {
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.95); }
+
+    .btn-main {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--focus-color);
+      color: white;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-main.break { background: var(--break-color); }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+
+    .btn-secondary:hover { color: var(--text); border-color: #444; }
+
+    .settings {
+      display: flex;
+      gap: 20px;
+    }
+
+    .setting {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .setting label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-adj {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .setting-val {
+      font-size: 18px;
+      width: 32px;
+      text-align: center;
+    }
+
+    .history {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 260px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .session-dot-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--focus-color);
+      opacity: 0.7;
+    }
+
+    .history-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<h1>Focus Timer</h1>
+
+<div class="ring-container">
+  <svg class="ring" viewBox="0 0 240 240">
+    <circle class="ring-bg" cx="120" cy="120" r="105"/>
+    <circle class="ring-progress" id="ring" cx="120" cy="120" r="105"/>
+  </svg>
+  <div class="time-display">
+    <div class="time" id="timeDisplay">25:00</div>
+    <div class="phase-label" id="phaseLabel">집중</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn-secondary" id="btnSkip" onclick="skip()">건너뛰기</button>
+  <button class="btn-main" id="btnPlay" onclick="togglePlay()">▶</button>
+  <button class="btn-secondary" id="btnReset" onclick="reset()">초기화</button>
+</div>
+
+<div class="settings">
+  <div class="setting">
+    <label>집중</label>
+    <div class="setting-row">
+      <button class="btn-adj" onclick="adjustTime('focus', -5)">−</button>
+      <span class="setting-val" id="focusVal">25</span>
+      <button class="btn-adj" onclick="adjustTime('focus', 5)">+</button>
+    </div>
+  </div>
+  <div class="setting">
+    <label>휴식</label>
+    <div class="setting-row">
+      <button class="btn-adj" onclick="adjustTime('break', -5)">−</button>
+      <span class="setting-val" id="breakVal">5</span>
+      <button class="btn-adj" onclick="adjustTime('break', 5)">+</button>
+    </div>
+  </div>
+</div>
+
+<div>
+  <div class="history-label">완료한 세션</div>
+  <div class="session-dot-row" id="dots"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const CIRCUMFERENCE = 2 * Math.PI * 105;
+  const ring = document.getElementById('ring');
+  const timeDisplay = document.getElementById('timeDisplay');
+  const phaseLabel = document.getElementById('phaseLabel');
+  const btnPlay = document.getElementById('btnPlay');
+  const dots = document.getElementById('dots');
+
+  let focusMinutes = 25;
+  let breakMinutes = 5;
+  let phase = 'focus'; // 'focus' | 'break'
+  let totalSeconds = focusMinutes * 60;
+  let remaining = totalSeconds;
+  let running = false;
+  let interval = null;
+  let completedSessions = 0;
+
+  ring.style.strokeDasharray = CIRCUMFERENCE;
+  updateRingColor();
+  render();
+
+  function togglePlay() {
+    if (running) pause();
+    else start();
+  }
+
+  function start() {
+    running = true;
+    btnPlay.textContent = '⏸';
+    interval = setInterval(tick, 1000);
+  }
+
+  function pause() {
+    running = false;
+    btnPlay.textContent = '▶';
+    clearInterval(interval);
+  }
+
+  function tick() {
+    remaining--;
+    if (remaining <= 0) {
+      remaining = 0;
+      render();
+      clearInterval(interval);
+      running = false;
+      onPhaseComplete();
+      return;
+    }
+    render();
+  }
+
+  function onPhaseComplete() {
+    if (phase === 'focus') {
+      completedSessions++;
+      addDot();
+      showToast('집중 완료! 잠깐 쉬어가세요 ☕');
+      phase = 'break';
+      phaseLabel.textContent = '휴식';
+      totalSeconds = breakMinutes * 60;
+    } else {
+      showToast('휴식 끝! 다시 집중해봅시다 💪');
+      phase = 'focus';
+      phaseLabel.textContent = '집중';
+      totalSeconds = focusMinutes * 60;
+    }
+    remaining = totalSeconds;
+    updateRingColor();
+    btnPlay.textContent = '▶';
+    render();
+    // Auto-start next phase
+    setTimeout(start, 1500);
+  }
+
+  function skip() {
+    pause();
+    onPhaseComplete();
+  }
+
+  function reset() {
+    pause();
+    phase = 'focus';
+    totalSeconds = focusMinutes * 60;
+    remaining = totalSeconds;
+    phaseLabel.textContent = '집중';
+    updateRingColor();
+    render();
+  }
+
+  function render() {
+    const mins = Math.floor(remaining / 60).toString().padStart(2, '0');
+    const secs = (remaining % 60).toString().padStart(2, '0');
+    timeDisplay.textContent = `${mins}:${secs}`;
+    document.title = `${mins}:${secs} — ${phase === 'focus' ? '집중' : '휴식'}`;
+
+    const progress = remaining / totalSeconds;
+    ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+  }
+
+  function updateRingColor() {
+    ring.style.stroke = phase === 'focus' ? '#e85d4a' : '#4a9e7f';
+    btnPlay.className = `btn-main${phase === 'break' ? ' break' : ''}`;
+  }
+
+  function adjustTime(type, delta) {
+    if (type === 'focus') {
+      focusMinutes = Math.max(5, Math.min(90, focusMinutes + delta));
+      document.getElementById('focusVal').textContent = focusMinutes;
+      if (phase === 'focus' && !running) {
+        totalSeconds = focusMinutes * 60;
+        remaining = totalSeconds;
+        render();
+      }
+    } else {
+      breakMinutes = Math.max(1, Math.min(30, breakMinutes + delta));
+      document.getElementById('breakVal').textContent = breakMinutes;
+      if (phase === 'break' && !running) {
+        totalSeconds = breakMinutes * 60;
+        remaining = totalSeconds;
+        render();
+      }
+    }
+  }
+
+  function addDot() {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    dots.appendChild(d);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>
